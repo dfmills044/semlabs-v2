@@ -34,7 +34,6 @@ class User(Base):
     # Connect projects table to users table via the 'owner' relationship.
     projects = relationship("Project", back_populates="owner", cascade="all, delete-orphan")
 
-
 class Project(Base):
     __tablename__ = "projects"
 
@@ -51,7 +50,6 @@ class Project(Base):
     owner = relationship("User", back_populates="projects")
     # Connect projects table to connections table via the 'connections' relationship.
     connections = relationship("Connection", back_populates="project", cascade="all, delete-orphan")
-
 
 class Connection(Base):
     __tablename__ = "connections"
@@ -80,3 +78,75 @@ class Connection(Base):
     project = relationship("Project", back_populates="connections")
     # Connect connections table to scans table via the 'scans' relationship.
     scans = relationship("Scan", back_populates="connection", cascade="all, delete-orphan")
+
+# Pass in 'str' and 'enum.Enum' to allow direct string comparisons without extra serialization config.
+class ScanStatus(str, enum.Enum): 
+    QUEUED = "QUEUED" # The scan is queued and waiting to be run.
+    RUNNING = "RUNNING" # The scan is running.
+    COMPLETED = "COMPLETED" # The scan is completed.
+    FAILED = "FAILED" # The scan failed.
+    CANCELLED = "CANCELLED" # The scan was cancelled.
+
+class Scan(Base):
+    __tablename__ = "scans"
+
+    id = Column(String, primary_key=True, default=_uuid)
+    connection_id = Column(String, ForeignKey("connections.id"), nullable=False)
+    status = Column(SAEnum(ScanStatus), default=ScanStatus.QUEUED, nullable=False)
+
+    # Real-time progress tracking columns for frontend UI display.
+    current_step = Column(Integer, default=0)
+    current_step_name = Column(String, default="")
+    progress_pct = Column(Float, default=0.0)
+
+    # Error handling columns. Logs should go to dedicated service later..
+    log_messages = Column(JSON, default=list) # JSON 'log_messages' are overwritten entirely on update - logs should go to dedicated service later..
+    error_message = Column(Text, nullable=True)
+    error_trace = Column(Text, nullable=True)
+
+    # Scope configuration column. Stores the scope configuration for the scan.
+    scope_config = Column(JSON, nullable=True)
+
+    # Denormalized counter columns to store final scan stats
+    # Note: no 'updated_at' exists to track refresh timing - we will need to handle this manually.
+    total_tables_scanned = Column(Integer, default=0)
+    total_columns_indexed = Column(Integer, default=0)
+    total_schemas_scanned = Column(Integer, default=0)
+    total_queries_parsed = Column(Integer, default=0)
+    total_relationships = Column(Integer, default=0)
+    total_columns_contexted = Column(Integer, default=0)
+    total_columns_disambiguated = Column(Integer, default=0)
+    total_concepts_clustered = Column(Integer, default=0)
+    total_concepts_finalized = Column(Integer, default=0)
+
+    # Storing multi-MB graph results directly in the DB - SQLite can handle this for now, but makes database huge and makes migrations and backups slow.
+    # Consider moving 'result_payload' to object storage (S3/GCS) later.
+    result_summary = Column(JSON, nullable=True)
+    result_concepts = Column(JSON, nullable=True)
+    result_unmapped = Column(JSON, nullable=True)
+    result_payload = Column(JSON, nullable=True)
+
+    # Timestamps for tracking the scan lifecycle.
+    started_at = Column(DateTime, nullable=True)
+    completed_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, default=_utcnow)
+
+    # Connect connections table to scans table via the 'scans' relationship.
+    connection = relationship("Connection", back_populates="scans")
+
+class PasswordResetToken(Base):
+    __tablename__ = "password_reset_tokens"
+
+    id = Column(String, primary_key=True, default=_uuid)
+    user_id = Column(String, ForeignKey("users.id"), nullable=False)
+
+    # No need to index this column and set unique=True because unique creates B-tree index
+    token = Column(String, unique=True, nullable=False)
+
+    # Never store reset tokens longer than necessary.
+    expires_at = Column(DateTime, nullable=False)
+
+    # Track if tokens have been used to prevent reuse by attackers.
+    used = Column(Boolean, default=False)
+    
+    created_at = Column(DateTime, default=_utcnow)
