@@ -47,6 +47,7 @@ class Settings(BaseSettings):
 
     class Config:
         env_file = ".env"
+        extra = "ignore"
 
 # Keeping this simple for now. Create a get_settings() function later for FastAPI dependency injection, but this makes testing harder.
 settings = Settings()

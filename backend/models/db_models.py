@@ -148,5 +148,5 @@ class PasswordResetToken(Base):
 
     # Track if tokens have been used to prevent reuse by attackers.
     used = Column(Boolean, default=False)
-    
+
     created_at = Column(DateTime, default=_utcnow)
