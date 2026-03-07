@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import re
 from datetime import datetime
-from pydantic import BaseModel, field_validator, model_validator, ConfigDict
+from pydantic import BaseModel, field_validator, model_validator, ConfigDict, SecretStr, Field
 
 
 # -- Constants ---
@@ -145,6 +145,62 @@ class ProjectCreateRequest(BaseModel):
 class ProjectResponse(BaseModel):
     id: str
     name: str
+    created_at: datetime
+
+    # Allow Pydantic to read from SQLAlchemy ORM objects.
+    model_config = ConfigDict(from_attributes=True)
+
+# --- Connection Schemas ---
+
+# Connect Snowflake request schema
+class ConnectSnowflakeRequest(BaseModel):
+    # Automatically strip whitespace from strings in this model.
+    model_config = ConfigDict(str_strip_whitespace=True)
+    
+    database_name: str
+    account_id: str
+    username: str
+
+    # Use SecretStr to redact password from logs/repr. Need to use request.password.get_secret_value() to get actual password value later.
+    password: SecretStr
+    role: str | None = None
+    warehouse: str | None = None
+
+    # Validator for checking if stripped connection strings are not just empty spaces.
+    @field_validator("database_name", "account_id", "username")
+    @classmethod
+    def check_empty_strings(cls, v: str) -> str:
+        if not v:
+            raise ValueError("Connection string cannot be empty.")
+        return v
+
+# Update connection request schema
+class UpdateConnectionRequest(BaseModel):
+    # Automatically strip whitespace from strings in this model.
+    model_config = ConfigDict(str_strip_whitespace=True)
+
+    account_id: str
+    username: str
+
+    # Use SecretStr to redact password from logs/repr. Also explicitly document that None means keep existing password.
+    # Need to account for None sentinel logic in the connections.py API route logic later.
+    password: SecretStr | None = Field(
+        default=None,
+        description="The new password. If null or omitted, the existing password remains unchanged."
+    )
+
+    role: str | None = None
+    warehouse: str | None = None
+
+# Connection response schema
+class ConnectionResponse(BaseModel):
+    # Do not send password back in response. The frontend/user should never see it again after it is set.    
+    id: str
+    database_name: str
+    account_id: str
+    username: str
+    role: str | None
+    warehouse: str | None
     created_at: datetime
 
     # Allow Pydantic to read from SQLAlchemy ORM objects.
