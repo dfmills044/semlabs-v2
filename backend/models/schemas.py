@@ -5,6 +5,8 @@ from datetime import datetime
 from pydantic import BaseModel, field_validator, model_validator 
 
 
+
+
 # --- Helper Functions ---
 # Centralize validation logic to avoid repetitive and redundant code.
 
@@ -42,6 +44,7 @@ def validate_password_strength(password: str) -> str:
 
 # --- Auth Validation Schemas ---
 
+# Signup request schema
 class SignupRequest(BaseModel):
     email: str
     password: str
@@ -66,3 +69,48 @@ class SignupRequest(BaseModel):
             raise ValueError("Passwords do not match.")
         return self
     
+# Login request schema
+class LoginRequest(BaseModel):
+    email: str
+    password: str
+
+    # Validate email using helper function. Keeps login flow consistent with signup flow.
+    @field_validator("email")
+    @classmethod
+    def validate_email(cls, v: str) -> str:
+        return clean_and_validate_email(v)
+
+# Token response schema
+# Will fully implement OAuth2.0 scopes/flows when integrating with external auth providers.
+class TokenResponse(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+
+# Forgot password request schema
+class ForgotPasswordRequest(BaseModel):
+    email: str
+
+    # Validate email using helper function. Keeps forgot password flow consistent with signup and login flows.
+    @field_validator("email")
+    @classmethod
+    def validate_email(cls, v: str) -> str:
+        return clean_and_validate_email(v)
+
+# Reset password request schema
+class ResetPasswordRequest(BaseModel):
+    token: str
+    password: str
+    confirm_password: str
+
+    # Validate password using helper function. Keeps password rules consistent with signup and login flows.
+    @field_validator("password")
+    @classmethod
+    def validate_password(cls, v: str) -> str:
+        return validate_password_strength(v)
+
+    # Validate that the passwords match.
+    @model_validator(mode="after")
+    def passwords_match(self):
+        if self.password != self.confirm_password:
+            raise ValueError("Passwords do not match.")
+        return self
