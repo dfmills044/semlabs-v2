@@ -2,10 +2,12 @@ from __future__ import annotations
 
 import re
 from datetime import datetime
-from pydantic import BaseModel, field_validator, model_validator 
+from pydantic import BaseModel, field_validator, model_validator, ConfigDict
 
 
-
+# -- Constants ---
+# TODO: Move to a global backend/core/constants.py file for sync with db_models.py and Frontend.
+MAX_PROJECT_NAME_LENGTH = 50
 
 # --- Helper Functions ---
 # Centralize validation logic to avoid repetitive and redundant code.
@@ -114,3 +116,36 @@ class ResetPasswordRequest(BaseModel):
         if self.password != self.confirm_password:
             raise ValueError("Passwords do not match.")
         return self
+
+# --- Project Schemas ---
+
+# Project create request schema
+class ProjectCreateRequest(BaseModel):
+    name: str
+
+    # Validate project name. Check for empty name, length, and SQL injection risks.
+    @field_validator("name")
+    @classmethod
+    def validate_name(cls, v: str) -> str:
+        v = v.strip()
+
+        # Check if project name is empty
+        if not v:
+            raise ValueError("Project name is required.")
+
+        # Check if project name is too long. Use MAX_PROJECT_NAME_LENGTH to prevent sync risks.
+        if len(v) > MAX_PROJECT_NAME_LENGTH:
+            raise ValueError(f"Project name must be {MAX_PROJECT_NAME_LENGTH} characters or less.")
+
+        # Address SQL injection risks by only allowing alphanumeric, spaces, hyphens, underscores
+        if not re.match(r"^[a-zA-Z0-9\s\-_]+$", v):
+            raise ValueError("Project name must only contain alphanumeric characters, spaces, hyphens, and underscores.")
+
+# Project response schema
+class ProjectResponse(BaseModel):
+    id: str
+    name: str
+    created_at: datetime
+
+    # Allow Pydantic to read from SQLAlchemy ORM objects.
+    model_config = ConfigDict(from_attributes=True)
