@@ -86,13 +86,14 @@ class ScanStatus(str, enum.Enum):
     COMPLETED = "COMPLETED" # The scan is completed.
     FAILED = "FAILED" # The scan failed.
     CANCELLED = "CANCELLED" # The scan was cancelled.
+    TIMEOUT = "TIMEOUT" # The scan timed out. Necessary infra for killing zombie scans.
 
 class Scan(Base):
     __tablename__ = "scans"
 
     id = Column(String, primary_key=True, default=_uuid)
     connection_id = Column(String, ForeignKey("connections.id"), nullable=False)
-    status = Column(SAEnum(ScanStatus), default=ScanStatus.QUEUED, nullable=False)
+    status = Column(SAEnum(ScanStatus), default=ScanStatus.QUEUED, nullable=False, index=True) # Need index for making killing zombie scans process faster.
 
     # Real-time progress tracking columns for frontend UI display.
     current_step = Column(Integer, default=0)
@@ -129,6 +130,7 @@ class Scan(Base):
     # Timestamps for tracking the scan lifecycle.
     started_at = Column(DateTime, nullable=True)
     completed_at = Column(DateTime, nullable=True)
+    updated_at = Column(DateTime, default=_utcnow, onupdate=_utcnow, index=True) # Necessary for tracking last updated time for killing zombie scans.
     created_at = Column(DateTime, default=_utcnow)
 
     # Connect connections table to scans table via the 'scans' relationship.
