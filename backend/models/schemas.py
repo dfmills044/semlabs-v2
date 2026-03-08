@@ -13,7 +13,7 @@ MAX_PROJECT_NAME_LENGTH = 50
 # Centralize validation logic to avoid repetitive and redundant code.
 
 # Email validation logic
-def clean_and_validate_email(email: str) -> str:
+def _clean_and_validate_email(email: str) -> str:
     """Normalizes email and checks format using regex"""
     email = email.strip().lower()
 
@@ -25,7 +25,7 @@ def clean_and_validate_email(email: str) -> str:
     return email
 
 # Password validation logic
-def validate_password_strength(password: str) -> str:
+def _validate_password_strength(password: str) -> str:
     """Consolidated password rules: length, case, digit, special character"""
     error_message = "Password must be at least 8 characters and contain an uppercase letter, a lowercase letter, a number, and a special character."
 
@@ -56,13 +56,13 @@ class SignupRequest(BaseModel):
     @field_validator("email")
     @classmethod
     def validate_email(cls, v: str) -> str:
-        return clean_and_validate_email(v)
+        return _clean_and_validate_email(v)
 
     # Validate password using helper function.
     @field_validator("password")
     @classmethod
     def validate_password(cls, v: str) -> str:
-        return validate_password_strength(v)
+        return _validate_password_strength(v)
 
     # Validate that the passwords match.
     @model_validator(mode="after")
@@ -80,7 +80,7 @@ class LoginRequest(BaseModel):
     @field_validator("email")
     @classmethod
     def validate_email(cls, v: str) -> str:
-        return clean_and_validate_email(v)
+        return _clean_and_validate_email(v)
 
 # Token response schema
 # Will fully implement OAuth2.0 scopes/flows when integrating with external auth providers.
@@ -96,7 +96,7 @@ class ForgotPasswordRequest(BaseModel):
     @field_validator("email")
     @classmethod
     def validate_email(cls, v: str) -> str:
-        return clean_and_validate_email(v)
+        return _clean_and_validate_email(v)
 
 # Reset password request schema
 class ResetPasswordRequest(BaseModel):
@@ -108,7 +108,7 @@ class ResetPasswordRequest(BaseModel):
     @field_validator("password")
     @classmethod
     def validate_password(cls, v: str) -> str:
-        return validate_password_strength(v)
+        return _validate_password_strength(v)
 
     # Validate that the passwords match.
     @model_validator(mode="after")
