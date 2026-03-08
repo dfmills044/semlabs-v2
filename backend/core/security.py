@@ -8,6 +8,7 @@ from jose import JWTError, jwt
 from passlib.context import CryptContext
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.exc import SQLAlchemyError
 
 from backend.core.config import settings
 from backend.db.database import get_db
@@ -28,7 +29,7 @@ def verify_password(plain: str, hashed: str) -> bool:
 
 
 def create_access_token(data: dict, expires_delta: timedelta | None = None) -> str:
-    # Shallow copy - works fine for non-nested data. Need to revisit if nested data is needed
+    # Shallow copy - works fine for non-nested data. Need to revisit if nested data is needed (consider using deepcopy if needed)
     to_encode = data.copy() 
 
     # Timezone-aware expiry calculation - make sure to implement in routes that use this function
@@ -57,10 +58,20 @@ async def get_current_user(
             raise credentials_exception
     except JWTError:
         raise credentials_exception
+    
+    try:
+        # Performs a DB hit on every request, effectively converting the stateless JWT into a stateful check for user existence.
+        result = await db.execute(select(User).where(User.id == user_id))
+        user = result.scalar_one_or_none()
+    except (SQLAlchemyError, Exception):
+        # Catch DB outages to prevent masking as a 401 or surfacing as a raw 500.
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Database service temporarily unavialable.",
+            headers={"Retry-After": "30"}, # Advise client to retry after 30 seconds
+        )
+    
 
-    # Performs a DB hit on every request, effectively converting the stateless JWT into a stateful check for user existence.
-    result = await db.execute(select(User).where(User.id == user_id))
-    user = result.scalar_one_or_none()
     if user is None:
         raise credentials_exception
 
