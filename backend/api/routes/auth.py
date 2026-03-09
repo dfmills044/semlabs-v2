@@ -77,3 +77,10 @@ async def login(req: LoginRequest, db: AsyncSession = Depends(get_db)):
 
     token = create_access_token({"sub": user.id}) # Standardizes token issuance across login and signup to maintain a consistent authentication payload.
     return TokenResponse(access_token=token)
+
+# Logout route
+@router.post("/logout")
+async def logout(current_user: User = Depends(get_current_user)):
+    # Statelessness Tradeoff: The JWT remains valid until its natural expiry.
+    # Consider implementing a blacklist of revoked tokens on a fast database (i.e., Redis)to prevent reuse after logout.
+    return {"detail": "Successfully logged out."} # Returns a successful logout response; note that the stateless JWT remains valid until its natural expiry.
