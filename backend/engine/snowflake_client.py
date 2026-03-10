@@ -207,7 +207,7 @@ async def fetch_schemas_and_tables(
 ) -> dict[str, list[str]] | SnowflakeError:
     """
     Fetch schemas and tables via INFORMATION_SCHEMA.SCHEMATA and INFORMATION_SCHEMA.TABLES.
-    Returns list of dicts with 'schema_name' and 'table_name' keys.
+    Returns dictionary with schema names as keys and lists of table names as values.
     """
     def _sync_discovery():
         conn = None 
